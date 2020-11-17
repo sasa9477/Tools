@@ -93,6 +93,6 @@ exit /b
 
 rem ログ出力
 :Log
-set logPath=C:\Users\sota\Documents\ChangeColorThemeSetting.log
+set logPath=%AppData%\VisualStudioChangeColorThemeSetting\ChangeColorThemeSetting.log
 echo %date%%time% %~1 >> %logPath%
 exit /b
