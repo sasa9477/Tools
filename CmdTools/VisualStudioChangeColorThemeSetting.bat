@@ -1,3 +1,7 @@
+rem Visual Studio Change Color Theme Setting
+rem Copyright (c) 2020 Sota Sasada
+rem This software is released under the MIT License.
+rem http://opensource.org/licenses/mit-license.php
 
 @@echo off
 
