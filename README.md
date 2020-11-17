@@ -7,4 +7,5 @@
 □使い方  
 1.VisualStudio起動→「ツール」→「オプション」→「環境」で淡色・濃色で設定したファイルを「設定のインポート・エクスポート」から出力します。  
 2.淡色の設定ファイル名を「WhiteColorSettings.vssettings」、濃色の設定ファイル名を「DarkColorSettings.vssettings」、現在の出力はそのまま「CurrentSettings.vssettings」とします。  
-3.タスクスケジューラでAM 6:00とPM 18:00、起動時にこのバッチファイルを起動するように設定します。  
+3.コード内のsettingsDirectoryPathを「設定のエクスポートパス」のフォルダーパスに置き換えます。  
+4.タスクスケジューラでAM 6:00とPM 18:00、起動時にこのバッチファイルを起動するように設定します。  
