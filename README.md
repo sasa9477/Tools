@@ -13,7 +13,8 @@
 
 ## C#PropertyNameFilterTool.html
 C#プロパティ名抽出ツール
-C#のプロパティ名を抽出して一覧に表示します。
+C#のソースコードからプロパティ名を抽出して、アクセス修飾子を取り除き表示します。
+Excelで編集しやすいようにタブ区切りとしています。
 コードを作成してからエクセル等に添付できるので、仕事で重宝しています。
 
 ## ScreenDesignDocumentHelperTool.html
