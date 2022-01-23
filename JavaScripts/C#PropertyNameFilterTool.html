@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<!--
+C# Property Name Filter Tool
+-->
+<html lang="ja">
+    <head>
+        <meta charset="utf-8">
+        <title>C#プロパティ名抽出ツール</title>
+        <style type="text/css">
+            @media (prefers-color-scheme: light) {
+                textarea {
+                    background-color: whitesmoke;
+                }
+            }
+            @media (prefers-color-scheme: dark) {
+                body {
+                    background-color: dimgray;
+                    color: whitesmoke;
+                }
+                textarea {
+                    background-color:black;
+                    color: whitesmoke;
+                }
+                ::placeholder {
+                    color: whitesmoke;
+                }
+            }
+            textarea {
+                overflow: scroll;
+                width: 100%;
+                margin: 5px;
+            }
+            .textarea_container {
+                display: flex;
+                justify-content: center;
+                height: 30em;
+            }
+            fieldset {
+                margin: 5px;
+            }
+        </style>
+    </head>
+    <body>
+        <div>
+            <h3>C#プロパティ名抽出ツール</h3>
+            <div>
+                <fieldset>
+                    <input id="show_property_type_check_box" type="checkbox" checked/>プロパティの型名を表示する
+                    <input id="change_property_propertyNames_to_camelCase_check_box" type="checkbox"/>プロパティ名をキャメルケースに変更する
+                    <input id="show_class_propertyName_check_box" type="checkbox"/>クラス名を表示する
+                </fieldset>
+            </div>
+            <div class="textarea_container">
+                <textarea id="input_textarea" placeholder="ここにソースコードを貼り付けて下さい。"></textarea>
+                <textarea id="output_textarea" placeholder="プロパティ名" readonly></textarea>
+            </div>
+        </div>
+        <script type="text/javascript">
+            const showPropertyTypeCheckBox = document.getElementById("show_property_type_check_box");
+            const changePropertyNamesToCamelCaseCheckBox = document.getElementById("change_property_propertyNames_to_camelCase_check_box");
+            const showClassNameCheckBox = document.getElementById('show_class_propertyName_check_box');
+            const inputTextArea = document.getElementById("input_textarea");
+            const outputTextArea = document.getElementById("output_textarea");
+
+            showPropertyTypeCheckBox.addEventListener('change', () => {
+                filterText();
+            });
+
+            changePropertyNamesToCamelCaseCheckBox.addEventListener('change', () => {
+                filterText();
+            });
+
+            showClassNameCheckBox.addEventListener('change', () => {
+                filterText();
+            });
+
+            inputTextArea.addEventListener('keyup', () => {
+                filterText();
+            })
+
+            function filterText() {
+
+                if (!inputTextArea.value) {
+                    return;
+                }
+
+                const propertyRegex = /(public|internal)\s*(sealed|virtual|override|^static)?\s*(\S+)\s*(\S+)/;
+
+                let className = '';
+                let content = '';
+
+                const lines = inputTextArea.value.split(/\r\n|\r|\n/);
+
+                lines.forEach(line => {
+
+                    // メソッドなら処理を行わない
+                    if (line.slice(-1) == ')') {
+                        return;
+                    }
+
+                    const match = line.trim().match(propertyRegex);
+
+                    if (match != null) {
+                        const propertyType = match[3];
+                        let propertyName = match[4];
+
+                        // 静的プロパティなら処理を行わない
+                        if (propertyType == 'static') {
+                            return;
+                        }
+
+                        // クラス名ならクラス名を保持してコンティニューする
+                        if (propertyType == 'class') {
+                            className += propertyName;
+                            return;
+                        }
+
+                        // キャメルケースに変更するチェックボックスが入っていたらプロパティ名をキャメルケースに変換する
+                        if (changePropertyNamesToCamelCaseCheckBox.checked)
+                        {
+                            propertyName =  propertyName.charAt(0).toLowerCase() + propertyName.slice(1);
+                        }
+
+                        content += showPropertyTypeCheckBox.checked ? `${propertyType}\t` : '';
+                        content += propertyName + '\n';
+                    }
+                });
+
+                let header = showClassNameCheckBox.checked ? `クラス名\t${className}\n` : '';
+                header += showPropertyTypeCheckBox.checked ? '型名\t' : '';
+                header += 'プロパティ名\n';
+
+                outputTextArea.value = header + content;
+            }
+        </script>
+    </body>
+</html>

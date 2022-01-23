@@ -1,0 +1,631 @@
+<!DOCTYPE html>
+<!--
+Screen Design Document Helper Tool
+-->
+<html lang="ja">
+    <head>
+        <meta charset="utf-8">
+        <title>画像に番号追加</title>
+        <style>
+            input[type="file"] {
+                display: none;
+            }
+
+            #actions-container {
+                width: 900px;
+                margin: 10px 0;
+            }
+
+            .text-input {
+                width: 400px;
+            }
+
+            .comment {
+                font-size: 10pt;
+            }
+
+            #main-container {
+                width: 1200px;
+                height: 506px;
+                border: 1px solid gray;
+                display: flex;
+                position: relative;
+            }
+
+            #image-container {
+                width: 75%;
+                height: 100%;
+                background-color: whitesmoke;
+                border: 1px solid whitesmoke;
+                box-sizing: border-box;
+                position: relative;
+            }
+
+            #drop-area {
+                width: 100%;
+                height: 100%;
+                background-color: #f0f0f0;
+                border: 2px gray dashed;
+                border-radius: 2px;
+                box-sizing: border-box;
+                padding-left: 10px;
+                font-size: 12pt;
+                /* 文字の選択を抑制 */
+                user-select: none;
+            }
+
+            #drop-area:hover {
+                background-color: #e0e0e0;
+            }
+
+            #image-area {
+                max-width: 100%;
+                max-height: 100%;
+                /* 親要素を relativeにして 全位置を0にすると 中央に配置される*/
+                position: absolute;
+                left: 0; top: 0; right: 0; bottom: 0;
+                margin: auto;
+            }
+
+            #items-container {
+                display: flex;
+                flex-direction: column;
+                width: 280px;
+                margin: 0 10px;
+            }
+
+            .name-box {
+                display: inline-flex;
+                margin: 2px 0;
+            }
+
+            .number-circle {
+                width: 18px;
+                height: 18px;
+                line-height: 18px;
+                border: 1px solid lightgray;
+                border-radius: 50%;
+                text-align: center;
+                background: yellow;
+                user-select: none;
+                z-index: 1000;
+                font-size: 10%
+            }
+
+            .draggable {
+                cursor: move;
+                position: absolute;
+                opacity: 85%;
+            }
+
+            .dragging {
+                border: 1px solid gray;
+            }
+
+            .name-input {
+                /* 要素の横幅一杯にする */
+                flex-grow: 2;
+                margin: 0 4px;
+            }
+        </style>
+        <!-- MIT ライセンス -->
+        <script src="https://cdn.jsdelivr.net/npm/dom-to-image@2.6.0/src/dom-to-image.min.js"></script>
+    </head>
+    <body>
+        <h1>画像に番号追加</h1>
+
+        <div id="actions-container">
+            <div id="input-text-container">
+                <p>
+                    <label for="view-name-input">画面名：
+                        <input type="text" class="text-input" id="view-name-input">
+                    </label>
+                </p>
+                <div class="comment">※エンターキー確定で出力ファイル名と保存データファイル名の先頭に画面名を挿入</div>
+                <p>
+                    <label for="output-file-name-input">出力ファイル名：
+                        <input type="text" class="text-input" id="output-file-name-input">
+                    </label>
+                </p>
+                <p>
+                    <label for="data-file-name-input">保存データファイル名：
+                        <input type="text" class="text-input" id="data-file-name-input">
+                    </label>
+                </p>
+            </div>
+            <input type="button" id="add-number-elements-button" value="番号を追加">
+            <input type="button" id="export-save-data-button" value="データを保存">
+            <input type="button" id="import-save-data-button" value="データを読込">
+            <input type="file" id="import-save-data-file-input" accept="text/plain">
+            <input type="button" id="save-content-as-image-button" value="画像に変換して出力">
+            <input type="button" id="change-image-button" value="画像を変更">
+            <input type="button" id="clear-button" value="新規作成">
+        </div>
+
+        <div id="main-container">
+            <div id="image-container">
+                <div class="file-input" id="drop-area" >
+                    <p>画像ファイルをドラッグ&ドロップ</p>
+                    <p>または ここをクリックして画像ファイルを選択</p>
+                    <input type="file" id="image-file-input" accept="image/*">
+                </div>
+            </div>
+
+            <div id="items-container"></div>
+        </div>
+
+        <script>
+            let viewName = "";
+            let outputFileName = "";
+            let dataFileName = "";
+            let itemsNumber = 1;
+            let imageData = "";
+            let storedViewDataJson = "";
+
+            const viewNameInput = document.getElementById("view-name-input");
+            const outputFileNameInput = document.getElementById("output-file-name-input");
+            const dataFileNameInput = document.getElementById("data-file-name-input");
+            const addNumberElementsButton = document.getElementById("add-number-elements-button");
+            const exportItemsButton = document.getElementById("export-save-data-button");
+            const importSaveDataButton = document.getElementById("import-save-data-button");
+            const importSaveDataFileInput = document.getElementById("import-save-data-file-input");
+            const saveContentAsImageButton = document.getElementById("save-content-as-image-button");
+            const changeImageButton = document.getElementById("change-image-button");
+            const clearButton = document.getElementById("clear-button");
+
+            const mainContainer = document.getElementById("main-container");
+            const imageContainer = document.getElementById("image-container");
+            const dropArea = document.getElementById("drop-area");
+            const imageFileInput = document.getElementById("image-file-input");
+            const itemsContainer = document.getElementById("items-container");
+
+            init();
+
+            function init() {
+                viewName = "";
+                outputFileName = "画面.png";
+                dataFileName = "画面データ.txt";
+                itemsNumber = 1;
+                imageData = "";
+                storedViewDataJson = createCurrentViewDataJson();
+
+                viewNameInput.value = viewName;
+                outputFileNameInput.value = outputFileName;
+                dataFileNameInput.value = dataFileName;
+
+                viewNameInput.disabled = true;
+                outputFileNameInput.disabled = true;
+                dataFileNameInput.disabled = true;
+                addNumberElementsButton.disabled = true;
+                exportItemsButton.disabled = true;
+                saveContentAsImageButton.disabled =true;
+                changeImageButton.disabled = true;
+                clearButton.disabled = true;
+            }
+
+            viewNameInput.onchange = () => {
+                let tempViewName = viewNameInput.value;
+                viewName = tempViewName;
+
+                if (tempViewName.endsWith("画面") === false) {
+                    tempViewName += "画面";
+                }
+
+                console.log(tempViewName);
+
+                const index = outputFileName.indexOf("画面");
+                if (index >= 0) {
+                    outputFileName = outputFileName.substr(index + 2, outputFileName.length - (index + 2));
+                }
+
+                outputFileName = tempViewName + outputFileName;
+                outputFileNameInput.value = outputFileName;
+
+                const index2 = dataFileName.indexOf("画面");
+                if (index2 >= 0) {
+                    dataFileName = dataFileName.substr(index2 + 2, dataFileName.length - (index2 + 2));
+                }
+
+                dataFileName = tempViewName + dataFileName;
+                dataFileNameInput.value = dataFileName;
+            }
+
+            outputFileNameInput.onchange = (event) => {
+                const trimedfileName = removeSpaces(outputFileNameInput.value);
+                outputFileNameInput.value = trimedfileName;
+                outputFileName = trimedfileName;
+            }
+
+            dataFileNameInput.onchange = (event) => {
+                const trimedfileName = removeSpaces(dataFileNameInput.value);
+                dataFileNameInput.value = trimedfileName;
+                dataFileName = trimedfileName;
+            }
+
+            function removeSpaces(str) {
+                return str.replace(/\s+/g, "");
+            }
+
+            addNumberElementsButton.onclick = () => {
+                itemsContainer.appendChild(createNameBox(itemsNumber));
+                imageContainer.appendChild(createNumberCircle(itemsNumber));
+
+                itemsNumber++;
+            }
+
+            function createNameBox(number = 1, name = "") {
+                const nameBox = document.createElement("div");
+                nameBox.className = "name-box";
+                nameBox.appendChild(createNumberCircle(number, false));
+                nameBox.appendChild(createNameInput(name));
+                nameBox.appendChild(createNameBoxDeleteButton());
+                return nameBox;
+            }
+
+            function createNumberCircle(number = 1, draggable = true, x, y) {
+                const numberCircle = document.createElement("div");
+                numberCircle.innerHTML = number;
+                numberCircle.className = "number-circle";
+                numberCircle.style.left = x;
+                numberCircle.style.top = y;
+
+                if (draggable) {
+                    numberCircle.classList.add("draggable");
+                    numberCircle.onmousedown = (event) => {
+
+                        // event.targetは イベントリスナーのオーナーオブジェクト (numberCircle) を指す
+                        event.target.classList.add("dragging");
+
+                        let mousedownX = event.pageX - event.target.offsetLeft;
+                        let mousedownY = event.pageY - event.target.offsetTop;
+
+                        // カーソルをキャプチャするため documentでリッスン
+                        document.body.addEventListener("mousemove", onMouseMove, false);
+                        event.target.addEventListener("mouseup", onMouseUp, false);
+
+                        function onMouseMove (event) {
+                            // デフォルトイベントを抑制
+                            event.preventDefault();
+
+                            const draggingElement = document.getElementsByClassName("dragging")[0];
+                            draggingElement.style.left = event.pageX - mousedownX + "px";
+                            draggingElement.style.top = event.pageY - mousedownY + "px";
+                        }
+
+                        function onMouseUp (event) {
+                            document.body.removeEventListener("mousemove", onMouseMove, false);
+                            event.target.removeEventListener("mouseup", onMouseUp, false);
+
+                            event.target.classList.remove("dragging");
+                        }
+                    }
+                }
+
+                return numberCircle;
+            }
+
+            function createNameInput(value = "") {
+                const input = document.createElement("input");
+                input.type = "text";
+                input.className = "name-input";
+
+                if (value) {
+                    input.value = value;
+                }
+
+                return input;
+            }
+
+            function createNameBoxDeleteButton() {
+                const inputButton = document.createElement("input");
+                inputButton.type = "button";
+                inputButton.value = "削除";
+                inputButton.tabIndex = -1;
+                inputButton.className = "name-box-delete-button"
+                inputButton.onclick = (event) => {
+                    replaceNumber(inputButton);
+                }
+                return inputButton;
+            }
+
+            function replaceNumber(element) {
+                const nameBoxNodes = document.getElementsByClassName("name-box");
+                const nameBoxes = Array.from(nameBoxNodes);
+                const targetIndex = nameBoxes.indexOf(element.parentElement);
+
+                const draggableNumberCircleNodes = document.getElementsByClassName("draggable");
+                const draggableNumberCircles = Array.from(draggableNumberCircleNodes);
+
+                nameBoxNodes[targetIndex].remove();
+                draggableNumberCircleNodes[targetIndex].remove();
+
+                for (let i = targetIndex; i < nameBoxes.length; i++) {
+                    const nameBox = nameBoxes[i];
+                    const numberCircle = nameBox.getElementsByClassName("number-circle")[0];
+                    numberCircle.innerHTML = i;
+
+                    const draggableNumberCircle = draggableNumberCircles[i];
+                    draggableNumberCircle.innerHTML = i;
+                }
+
+                itemsNumber--;
+            }
+
+            exportItemsButton.onclick = (event) => {
+                // デフォルトイベントを抑制
+                event.preventDefault();
+
+                const outputJson = createCurrentViewDataJson();
+
+                console.log(outputJson);
+
+                let tempDataFileName = dataFileName;
+                if (tempDataFileName.endsWith(".txt") === false) {
+                    tempDataFileName += ".txt";
+                }
+
+                const blob = new Blob([outputJson], { type: "text/plain" });
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement("a");
+                link.href = url;
+                link.download = tempDataFileName;
+                link.click();
+                setTimeout(() => {
+                    URL.revokeObjectURL(url);
+                }, 1000);
+
+                // ダウンロードされた時のデータをページ遷移時の比較のために保持する
+                storedViewDataJson = outputJson;
+            }
+
+            function createCurrentViewDataJson() {
+                const numberItems = [];
+                const nameInputs = document.getElementsByClassName("name-input");
+                const numberCircles = document.getElementsByClassName("number-circle");
+                for (let i = 0; i < nameInputs.length; i++) {
+
+                    const nameInput = nameInputs[i];
+                    const name = nameInput.value;
+
+                    const numberCircle = numberCircles[i];
+                    const x = numberCircle.style.left;
+                    const y = numberCircle.style.top;
+
+                    const item = {
+                        name,
+                        x,
+                        y
+                    }
+
+                    numberItems.push(item);
+                }
+
+                const saveData = {
+                    viewName,
+                    outputFileName,
+                    dataFileName,
+                    numberItems,
+                    imageData
+                }
+
+                return JSON.stringify(saveData, null, "\t");
+            }
+
+            importSaveDataButton.onclick = () => {
+                importSaveDataFileInput.click();
+            }
+
+            importSaveDataFileInput.oninput = (event) => {
+                const file = importSaveDataFileInput.files[0];
+                const fileReader = new FileReader();
+                fileReader.onload = (event) => {
+                    const importData = event.target.result;
+                    importSaveData(importData);
+                }
+                fileReader.readAsText(file);
+
+                // アップロードされたデータは保持しない
+                importSaveDataFileInput.value = "";
+            }
+
+            function importSaveData (importData) {
+                    // isJSON のような関数が標準APIに無いため try-catchで 変換に失敗するか判定する
+                    try {
+                        const rootObject = JSON.parse(importData);
+
+                        if (imageData !== "" || itemsContainer.firstChild) {
+                            const confirmResult = confirm("既にデータが存在しますが、置き換えますか？");
+                            if (confirmResult === false) {
+                                return;
+                            }
+                        }
+
+                        const numberItems = rootObject.numberItems;
+                        if (Array.isArray(numberItems))
+                        {
+                            for (let i = 0; i < numberItems.length; i++) {
+                                const numberItem = numberItems[i];
+                                itemsContainer.appendChild(createNameBox(itemsNumber, numberItem.name));
+                                imageContainer.appendChild(createNumberCircle(itemsNumber, true, numberItem.x, numberItem.y));
+
+                                itemsNumber++;
+                            }
+                        }
+
+                        viewName = rootObject.viewName;
+                        viewNameInput.value = viewName;
+
+                        outputFileName = rootObject.outputFileName;
+                        outputFileNameInput.value = outputFileName;
+
+                        dataFileName = rootObject.dataFileName;
+                        dataFileNameInput.value = dataFileName;
+
+                        const importedImageData = rootObject.imageData;
+                        previewImage(importedImageData, false);
+
+                        // インポートデータをページ遷移時の比較のために保持する
+                        storedViewDataJson = importData;
+                    } catch (exception) {
+                        console.log(exception);
+                        alert("無効なデータがアップロードされました。");
+                        clear();
+                    }
+            }
+
+            function clear() {
+                while (itemsContainer.firstChild) {
+                    itemsContainer.removeChild(itemsContainer.firstChild);
+                }
+
+                while (imageContainer.firstChild) {
+                    imageContainer.removeChild(imageContainer.firstChild);
+                }
+
+                imageContainer.appendChild(dropArea);
+
+                init();
+            }
+
+            saveContentAsImageButton.onclick = (event) => {
+                event.preventDefault();
+
+                const nameBoxDeleteButtons = document.getElementsByClassName("name-box-delete-button");
+                for (let i = 0; i < nameBoxDeleteButtons.length; i++) {
+                    nameBoxDeleteButtons[i].style.display = "none";
+                }
+
+                let tempOutputFileName = outputFileName;
+                if (tempOutputFileName.endsWith(".png") === false) {
+                    tempOutputFileName += ".png";
+                }
+
+                domtoimage.toPng(mainContainer)
+                    .then((dataURl) => {
+                        const link = document.createElement("a");
+                        link.download = tempOutputFileName;
+                        link.href = dataURl;
+                        link.click();
+
+                        for (let i = 0; i < nameBoxDeleteButtons.length; i++) {
+                            nameBoxDeleteButtons[i].style.display = "inline";
+                        }
+                    });
+            }
+
+            changeImageButton.onclick = (event) => {
+                imageFileInput.click();
+            }
+
+            clearButton.onclick = () => {
+                const confirmResult = confirm("画面をクリアして 新規作成を行いますか？");
+                if (confirmResult === false) {
+                    return;
+                }
+
+                clear();
+            }
+
+            dropArea.ondragover = (event) => {
+                // デフォルトイベントを抑制
+                event.preventDefault();
+                // イベントの伝播(バブリング)を抑制
+                event.stopPropagation();
+
+                event.dataTransfer.dropEffect = 'copy';
+            }
+
+            dropArea.ondrop = (event) => {
+                event.preventDefault();
+                event.stopPropagation();
+
+                const file = event.dataTransfer.files[0];
+                loadImageData(file);
+            }
+
+            dropArea.onclick = (event) => {
+                imageFileInput.click();
+            }
+
+            imageFileInput.onchange = (event) => {
+                const file = imageFileInput.files[0];
+                loadImageData(file);
+
+                // アップロードデータは保持しない
+                imageFileInput.value = "";
+            }
+
+            function loadImageData(file) {
+                const minetype = file.type;
+                if (minetype.includes("image") === false) {
+                    console.warn("file.type is not image.");
+                    return;
+                };
+
+                if (imageData !== "") {
+                    const confirmResult = confirm("画像データを置き換えますか？");
+                    if (confirmResult === false) {
+                        return;
+                    }
+
+                    const image = imageContainer.getElementsByTagName("img")[0];
+                    image.remove();
+
+                    imageData = "";
+                }
+
+                const fileReader = new FileReader();
+                fileReader.onload = (event) => {
+                    const resultData = event.target.result;
+                    previewImage(resultData);
+                }
+                fileReader.readAsDataURL(file);
+            }
+
+            function previewImage(imageSource, resize = true) {
+                const image = document.createElement("img");
+                image.id = "image-area";
+                image.onload = (event) => {
+                    if (resize === false) {
+                        imageData = imageSource;
+                        return;
+                    }
+
+                    const canvas = document.createElement("canvas");
+                    canvas.width = image.width;
+                    canvas.height = image.height;
+                    const context = canvas.getContext("2d");
+                    context.drawImage(image, 0, 0, image.naturalWidth, image.naturalHeight, 0, 0, image.width, image.height);
+                    imageData = canvas.toDataURL("image/png");
+                }
+                image.src = imageSource;
+
+                imageContainer.appendChild(image);
+                dropArea.remove();
+
+                viewNameInput.disabled = false;
+                outputFileNameInput.disabled = false;
+                dataFileNameInput.disabled = false;
+                addNumberElementsButton.disabled = false;
+                exportItemsButton.disabled = false;
+                saveContentAsImageButton.disabled = false;
+                changeImageButton.disabled = false;
+                clearButton.disabled = false;
+            }
+
+            // ページを離れる時
+            window.onbeforeunload = (event) => {
+                const currentDataJson = createCurrentViewDataJson();
+
+                // 現在の出力データが保存していた出力データと違っていたらダイアログを表示する
+                if (storedViewDataJson !== currentDataJson) {
+                    event.preventDefault();
+
+                    // ダイアログに文字列を表示する方法は 非推奨となっていて 多くのブラウザが既に対応していない
+                    // Chromeでは returnValueに値の設定が必要
+                    event.returnValue = "exit?";
+                }
+            }
+        </script>
+    </body>
+</html>
